@@ -25,6 +25,8 @@ enum RGWMDLogStatus {
   MDLOG_STATUS_ABORT,
 };
 
+#define ENOAPPLY 0
+
 class RGWMetadataObject {
 protected:
   obj_version objv;
@@ -46,12 +48,19 @@ class RGWMetadataHandler {
 
 protected:
   virtual void get_pool_and_oid(RGWRados *store, const string& key, rgw_bucket& bucket, string& oid) = 0;
+
 public:
+  enum sync_type_t {
+    APPLY_ALWAYS,
+    APPLY_UPDATES,
+    APPLY_NEWER
+  };
   virtual ~RGWMetadataHandler() {}
   virtual string get_type() = 0;
 
   virtual int get(RGWRados *store, string& entry, RGWMetadataObject **obj) = 0;
-  virtual int put(RGWRados *store, string& entry, RGWObjVersionTracker& objv_tracker, time_t mtime, JSONObj *obj) = 0;
+  virtual int put(RGWRados *store, string& entry, RGWObjVersionTracker& objv_tracker,
+                  time_t mtime, JSONObj *obj, sync_type_t type) = 0;
   virtual int remove(RGWRados *store, string& entry, RGWObjVersionTracker& objv_tracker) = 0;
 
   virtual int list_keys_init(RGWRados *store, void **phandle) = 0;

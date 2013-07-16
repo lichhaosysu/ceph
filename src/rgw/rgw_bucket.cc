@@ -1394,7 +1394,8 @@ public:
     return 0;
   }
 
-  int put(RGWRados *store, string& entry, RGWObjVersionTracker& objv_tracker, time_t mtime, JSONObj *obj) {
+  int put(RGWRados *store, string& entry, RGWObjVersionTracker& objv_tracker,
+          time_t mtime, JSONObj *obj, sync_type_t sync_type) {
     RGWBucketEntryPoint be, old_be;
     decode_json_obj(be, obj);
 
@@ -1405,6 +1406,21 @@ public:
     int ret = store->get_bucket_entrypoint_info(NULL, entry, old_be, &old_ot, &orig_mtime);
     if (ret < 0 && ret != -ENOENT)
       return ret;
+
+    // are we actually going to perform this put, or is it too old?
+    switch (sync_type) {
+    case APPLY_UPDATES:
+      if ((old_ot.read_version.tag != objv_tracker.write_version.tag) ||
+	  (old_ot.read_version.ver >= objv_tracker.write_version.ver))
+	return ENOAPPLY;
+      break;
+    case APPLY_NEWER:
+      if (orig_mtime >= mtime)
+	return ENOAPPLY;
+      break;
+    case APPLY_ALWAYS: // deliberate fall-thru -- we always do this one!
+    default: break;
+    }
 
     objv_tracker.read_version = old_ot.read_version; /* maintain the obj version we just read */
 
@@ -1536,7 +1552,8 @@ public:
     return 0;
   }
 
-  int put(RGWRados *store, string& oid, RGWObjVersionTracker& objv_tracker, time_t mtime, JSONObj *obj) {
+  int put(RGWRados *store, string& oid, RGWObjVersionTracker& objv_tracker,
+          time_t mtime, JSONObj *obj, sync_type_t sync_type) {
     RGWBucketCompleteInfo bci, old_bci;
     decode_json_obj(bci, obj);
 
@@ -1560,6 +1577,21 @@ public:
       /* existing bucket, keep its placement pools */
       bci.info.bucket.data_pool = old_bci.info.bucket.data_pool;
       bci.info.bucket.index_pool = old_bci.info.bucket.index_pool;
+    }
+
+    // are we actually going to perform this put, or is it too old?
+    switch (sync_type) {
+    case APPLY_UPDATES:
+      if ((bci.info.objv_tracker.read_version.tag != objv_tracker.write_version.tag) ||
+	  (bci.info.objv_tracker.read_version.ver >= objv_tracker.write_version.ver))
+	return ENOAPPLY;
+      break;
+    case APPLY_NEWER:
+      if (orig_mtime >= mtime)
+	return ENOAPPLY;
+      break;
+    case APPLY_ALWAYS: // deliberate fall-thru -- we always do this one!
+    default: break;
     }
 
     /* record the read version (if any), store the new version */

@@ -2295,7 +2295,8 @@ public:
     return 0;
   }
 
-  int put(RGWRados *store, string& entry, RGWObjVersionTracker& objv_tracker, time_t mtime, JSONObj *obj) {
+  int put(RGWRados *store, string& entry, RGWObjVersionTracker& objv_tracker,
+          time_t mtime, JSONObj *obj, sync_type_t sync_type) {
     RGWUserInfo info;
 
     decode_json_obj(info, obj);
@@ -2306,6 +2307,20 @@ public:
     if (ret < 0 && ret != -ENOENT)
       return ret;
 
+    // are we actually going to perform this put, or is it too old?
+    switch (sync_type) {
+    case APPLY_UPDATES:
+      if ((objv_tracker.read_version.tag != objv_tracker.write_version.tag) ||
+	  (objv_tracker.read_version.ver >= objv_tracker.write_version.ver))
+	return ENOAPPLY;
+      break;
+    case APPLY_NEWER:
+      if (orig_mtime >= mtime)
+	return ENOAPPLY;
+      break;
+    case APPLY_ALWAYS: // deliberate fall-thru -- we always do this one!
+    default: break;
+    }
 
     ret = rgw_store_user_info(store, info, &old_info, &objv_tracker, mtime, false);
     if (ret < 0)
