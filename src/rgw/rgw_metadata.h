@@ -25,7 +25,8 @@ enum RGWMDLogStatus {
   MDLOG_STATUS_ABORT,
 };
 
-#define ENOAPPLY 0
+#define EAPPLIED 0
+#define ENOAPPLY 1
 
 class RGWMetadataObject {
 protected:
