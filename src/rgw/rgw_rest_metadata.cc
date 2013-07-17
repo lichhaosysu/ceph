@@ -179,7 +179,6 @@ void RGWOp_Metadata_Put::execute() {
     dout(5) << "ERROR: can't put key: " << cpp_strerror(http_ret) << dendl;
     return;
   }
-  http_ret = 0;
 }
 
 void RGWOp_Metadata_Delete::execute() {
