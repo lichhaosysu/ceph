@@ -1408,18 +1408,9 @@ public:
       return ret;
 
     // are we actually going to perform this put, or is it too old?
-    switch (sync_type) {
-    case APPLY_UPDATES:
-      if ((old_ot.read_version.tag != objv_tracker.write_version.tag) ||
-	  (old_ot.read_version.ver >= objv_tracker.write_version.ver))
-	return ENOAPPLY;
-      break;
-    case APPLY_NEWER:
-      if (orig_mtime >= mtime)
-	return ENOAPPLY;
-      break;
-    case APPLY_ALWAYS: // deliberate fall-thru -- we always do this one!
-    default: break;
+    if (!check_versions(old_ot.read_version, orig_mtime,
+			objv_tracker.write_version, mtime, sync_type)) {
+      return ENOAPPLY;
     }
 
     objv_tracker.read_version = old_ot.read_version; /* maintain the obj version we just read */
@@ -1580,18 +1571,9 @@ public:
     }
 
     // are we actually going to perform this put, or is it too old?
-    switch (sync_type) {
-    case APPLY_UPDATES:
-      if ((bci.info.objv_tracker.read_version.tag != objv_tracker.write_version.tag) ||
-	  (bci.info.objv_tracker.read_version.ver >= objv_tracker.write_version.ver))
-	return ENOAPPLY;
-      break;
-    case APPLY_NEWER:
-      if (orig_mtime >= mtime)
-	return ENOAPPLY;
-      break;
-    case APPLY_ALWAYS: // deliberate fall-thru -- we always do this one!
-    default: break;
+    if (!check_versions(old_bci.info.objv_tracker.read_version, orig_mtime,
+			objv_tracker.write_version, mtime, sync_type)) {
+      return ENOAPPLY;
     }
 
     /* record the read version (if any), store the new version */
