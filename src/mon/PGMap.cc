@@ -251,6 +251,10 @@ void PGMap::apply_incremental(CephContext *cct, const Incremental& inc)
     stamp_delta -= pg_sum_deltas.front().second;
     pg_sum_deltas.pop_front();
   }
+
+  // keep in nonnegative.  we can get negative values if osds report
+  // uncommitted state, or if they are just buggy/wrong.
+  pg_sum_delta.floor(0);
   
   if (inc.osdmap_epoch)
     last_osdmap_epoch = inc.osdmap_epoch;
