@@ -5516,10 +5516,12 @@ void ReplicatedPG::submit_push_data(
   ObjectStore::Transaction *t)
 {
   coll_t target_coll;
-  if (first && complete)
+  if (first && complete) {
     target_coll = coll;
-  else
+  } else {
+    temp_contents.insert(recovery_info.soid);
     target_coll = get_temp_coll(t);
+  }
 
   if (first) {
     pg_log.revise_have(recovery_info.soid, eversion_t());
@@ -5546,8 +5548,11 @@ void ReplicatedPG::submit_push_data(
 	      attrs);
 
   if (complete) {
-    if (!first)
+    if (!first) {
+      assert(temp_contents.count(recovery_info.soid));
+      temp_contents.erase(recovery_info.soid);
       t->collection_move(coll, target_coll, recovery_info.soid);
+    }
 
     submit_push_complete(recovery_info, t);
   }
@@ -6701,6 +6706,8 @@ void ReplicatedPG::on_shutdown()
 void ReplicatedPG::on_flushed()
 {
   assert(object_contexts.empty());
+  if (have_temp_coll())
+    assert(osd->store->collection_empty(get_temp_coll()));
 }
 
 void ReplicatedPG::on_activate()
@@ -6749,6 +6756,14 @@ void ReplicatedPG::on_change(ObjectStore::Transaction *t)
   pushing.clear();
   pulling.clear();
   pull_from_peer.clear();
+
+  // clear temp
+  for (set<hobject_t>::iterator i = temp_contents.begin();
+       i != temp_contents.end();
+       ++i) {
+    t->remove(get_temp_coll(t), *i);
+  }
+  temp_contents.clear();
 
   // clear snap_trimmer state
   snap_trimmer_machine.process_event(Reset());
